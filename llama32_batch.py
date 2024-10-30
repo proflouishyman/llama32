@@ -4,6 +4,7 @@ import torch
 import statistics
 from PIL import Image
 from transformers import MllamaForConditionalGeneration, AutoProcessor
+from torch.cuda.amp import autocast
 
 # Configuration
 model_id = "meta-llama/Llama-3.2-11B-Vision-Instruct"
@@ -117,13 +118,14 @@ for idx, image_file in enumerate(image_files, start=1):
 
         # Generate output
         with torch.no_grad():  # Disable gradient calculations for inference
-            generation_output = model.generate(
-                **inputs,
-                max_new_tokens=2000,              # Adjust based on desired response length
-                return_dict_in_generate=True,    # Enable structured output
-                output_scores=False,             # Disable scores to save memory
-                output_attentions=False,         # Disable attentions to save memory
-            )
+            with autocast():
+                generation_output = model.generate(
+                    **inputs,
+                    max_new_tokens=2000,              # Adjust based on desired response length
+                    return_dict_in_generate=True,    # Enable structured output
+                    output_scores=False,             # Disable scores to save memory
+                    output_attentions=False,         # Disable attentions to save memory
+                )
 
         # End timing
         end_time = time.time()
