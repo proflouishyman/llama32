@@ -1,2 +1,804 @@
 Model Responses:
 
+Batch 1, Image 1: RDApp-206939Doresey002.jpg
+user
+
+Extract text from the image. Then, analyze the text to provide a summary of the content. Structure the extracted data into a STRICT JSON format. Use double quotes for strings. Remove trailing commas. Ensure all braces and brackets are correctly closed. Correctly structure nested elements. In the JSON arrays, each element should be separated by a comma.
+The document may contain multiple types of bureaucratic forms with printed or handwritten information. Each line of tabular information, if available, should be accurately categorized and linked to relevant information. Use null values for any categories where no relevant information is found. If any other information is necessary, include it in the "other" category.
+Return the extracted information as a JSON object with the following structure:
+{
+    "ocr_text": "string",
+    "summary": "string",
+    "sections": [
+        {
+            "section_name": "string",
+            "fields": [
+                {
+                    "field_name": "string",
+                    "value": "string",
+                    "linked_information": {
+                        "personal_information": {
+                            "name": "string",
+                            "date_of_birth": "string",
+                            "social_security_no": "string",
+                            "employee_no": "string",
+                            "id_no": "string",
+                            "rp_certificate_no": "string"
+                        },
+                        "named_entities": [
+                            {
+                                "entity": "string",
+                                "type": "string"
+                            }
+                        ],
+                        "dates": [
+                            {
+                                "date": "string",
+                                "category": "string"
+                            }
+                        ],
+                        "monetary_amounts": [
+                            {
+                                "amount": "string",
+                                "category": "string"
+                            }
+                        ],
+                        "relationships": [
+                            {
+                                "entity1": "string",
+                                "relationship": "string",
+                                "entity2": "string"
+                            }
+                        ],
+                        "medical_information": [
+                            {
+                                "info": "string",
+                                "category": "string"
+                            }
+                        ],
+                        "family_information": [
+                            {
+                                "name": "string",
+                                "relationship": "string",
+                                "event": "string"
+                            }
+                        ],
+                        "employment_history": [
+                            {
+                                "date": "string",
+                                "position_description": "string",
+                                "division": "string",
+                                "department": "string",
+                                "location": "string",
+                                "rate_of_pay": "string",
+                                "remarks": "string"
+                            }
+                        ],
+                        "employment_events": [
+                            {
+                                "date": "string",
+                                "location": "string",
+                                "incident": "string",
+                                "action_taken": "string",
+                                "reference_numbers": [
+                                    "string"
+                                ]
+                            }
+                        ],
+                        "geographical_information": [
+                            "string"
+                        ],
+                        "document_specific_information": [
+                            "string"
+                        ],
+                        "other": [
+                            "string"
+                        ],
+                        "metadata": {
+                            "document_type": "string",
+                            "period": "string",
+                            "context": "string"
+                        },
+                        "sentiment": "string"
+                    }
+                }
+            ]
+        }
+    ]
+}
+assistant
+
+The image presents a scanned document of a statement of account from Lutheran Hospital, dated July 9, 1949. The document is addressed to B & O Railroad Co., Terminal Tower, Cleveland, Ohio.
+
+*   **Document Details**
+    *   **Date:** July 9, 1949
+    *   **Addressed to:** B & O Railroad Co., Terminal Tower, Cleveland, Ohio
+*   **Statement of Account**
+    *   **Amount Due:** $10.00
+    *   **X-Ray Left Ankle:** Theodore Dorsey
+    *   **Date:** April 22
+    *   **Amount:** $10.00
+*   **Handwritten Notes**
+    *   **Displasia left:** 5-3-49
+    *   **Impaired 7/14/49**
+*   **Footer**
+    *   **Lutheran Hospital, Cleveland, Ohio**
+
+The document provides a clear and concise summary of
+==================================================
+Batch 1, Image 2: mss511850144-29.jpg
+user
+
+Extract text from the image. Then, analyze the text to provide a summary of the content. Structure the extracted data into a STRICT JSON format. Use double quotes for strings. Remove trailing commas. Ensure all braces and brackets are correctly closed. Correctly structure nested elements. In the JSON arrays, each element should be separated by a comma.
+The document may contain multiple types of bureaucratic forms with printed or handwritten information. Each line of tabular information, if available, should be accurately categorized and linked to relevant information. Use null values for any categories where no relevant information is found. If any other information is necessary, include it in the "other" category.
+Return the extracted information as a JSON object with the following structure:
+{
+    "ocr_text": "string",
+    "summary": "string",
+    "sections": [
+        {
+            "section_name": "string",
+            "fields": [
+                {
+                    "field_name": "string",
+                    "value": "string",
+                    "linked_information": {
+                        "personal_information": {
+                            "name": "string",
+                            "date_of_birth": "string",
+                            "social_security_no": "string",
+                            "employee_no": "string",
+                            "id_no": "string",
+                            "rp_certificate_no": "string"
+                        },
+                        "named_entities": [
+                            {
+                                "entity": "string",
+                                "type": "string"
+                            }
+                        ],
+                        "dates": [
+                            {
+                                "date": "string",
+                                "category": "string"
+                            }
+                        ],
+                        "monetary_amounts": [
+                            {
+                                "amount": "string",
+                                "category": "string"
+                            }
+                        ],
+                        "relationships": [
+                            {
+                                "entity1": "string",
+                                "relationship": "string",
+                                "entity2": "string"
+                            }
+                        ],
+                        "medical_information": [
+                            {
+                                "info": "string",
+                                "category": "string"
+                            }
+                        ],
+                        "family_information": [
+                            {
+                                "name": "string",
+                                "relationship": "string",
+                                "event": "string"
+                            }
+                        ],
+                        "employment_history": [
+                            {
+                                "date": "string",
+                                "position_description": "string",
+                                "division": "string",
+                                "department": "string",
+                                "location": "string",
+                                "rate_of_pay": "string",
+                                "remarks": "string"
+                            }
+                        ],
+                        "employment_events": [
+                            {
+                                "date": "string",
+                                "location": "string",
+                                "incident": "string",
+                                "action_taken": "string",
+                                "reference_numbers": [
+                                    "string"
+                                ]
+                            }
+                        ],
+                        "geographical_information": [
+                            "string"
+                        ],
+                        "document_specific_information": [
+                            "string"
+                        ],
+                        "other": [
+                            "string"
+                        ],
+                        "metadata": {
+                            "document_type": "string",
+                            "period": "string",
+                            "context": "string"
+                        },
+                        "sentiment": "string"
+                    }
+                }
+            ]
+        }
+    ]
+}
+assistant
+
+After processing the image, I extracted the text and analyzed it to provide a summary of the content. Here is the extracted information in a strict JSON format:
+
+```json
+{
+    "ocr_text": "Mr. Victor Yarros, c/o Chicago Herald, Chicago, Ill. Dear Sir: Enclosed find check for $50.00 in payment of EX contribution for the AMERICAN FEDERATIONIST: also blank receipt which kindly sign and return. Very truly yours, President American Federation of Labor.",
+    "summary": "A letter from the President of the American Federation of Labor, addressed to Mr. Victor Yarros, c/o Chicago Herald, offering a check for $50.00 in payment of an EX contribution for the AMERICAN FEDERATIONIST, and asking for a signed and returned receipt.",
+    "sections": [
+        {
+            "section_name": "Letter",
+            "fields": [
+                {
+                    "field_name": "To",
+                    "value": "
+==================================================
+Batch 1, Image 3: RDApp-206939Doresey003.jpg
+user
+
+Extract text from the image. Then, analyze the text to provide a summary of the content. Structure the extracted data into a STRICT JSON format. Use double quotes for strings. Remove trailing commas. Ensure all braces and brackets are correctly closed. Correctly structure nested elements. In the JSON arrays, each element should be separated by a comma.
+The document may contain multiple types of bureaucratic forms with printed or handwritten information. Each line of tabular information, if available, should be accurately categorized and linked to relevant information. Use null values for any categories where no relevant information is found. If any other information is necessary, include it in the "other" category.
+Return the extracted information as a JSON object with the following structure:
+{
+    "ocr_text": "string",
+    "summary": "string",
+    "sections": [
+        {
+            "section_name": "string",
+            "fields": [
+                {
+                    "field_name": "string",
+                    "value": "string",
+                    "linked_information": {
+                        "personal_information": {
+                            "name": "string",
+                            "date_of_birth": "string",
+                            "social_security_no": "string",
+                            "employee_no": "string",
+                            "id_no": "string",
+                            "rp_certificate_no": "string"
+                        },
+                        "named_entities": [
+                            {
+                                "entity": "string",
+                                "type": "string"
+                            }
+                        ],
+                        "dates": [
+                            {
+                                "date": "string",
+                                "category": "string"
+                            }
+                        ],
+                        "monetary_amounts": [
+                            {
+                                "amount": "string",
+                                "category": "string"
+                            }
+                        ],
+                        "relationships": [
+                            {
+                                "entity1": "string",
+                                "relationship": "string",
+                                "entity2": "string"
+                            }
+                        ],
+                        "medical_information": [
+                            {
+                                "info": "string",
+                                "category": "string"
+                            }
+                        ],
+                        "family_information": [
+                            {
+                                "name": "string",
+                                "relationship": "string",
+                                "event": "string"
+                            }
+                        ],
+                        "employment_history": [
+                            {
+                                "date": "string",
+                                "position_description": "string",
+                                "division": "string",
+                                "department": "string",
+                                "location": "string",
+                                "rate_of_pay": "string",
+                                "remarks": "string"
+                            }
+                        ],
+                        "employment_events": [
+                            {
+                                "date": "string",
+                                "location": "string",
+                                "incident": "string",
+                                "action_taken": "string",
+                                "reference_numbers": [
+                                    "string"
+                                ]
+                            }
+                        ],
+                        "geographical_information": [
+                            "string"
+                        ],
+                        "document_specific_information": [
+                            "string"
+                        ],
+                        "other": [
+                            "string"
+                        ],
+                        "metadata": {
+                            "document_type": "string",
+                            "period": "string",
+                            "context": "string"
+                        },
+                        "sentiment": "string"
+                    }
+                }
+            ]
+        }
+    ]
+}
+assistant
+
+Here is the extracted text from the image:
+
+**Relief Department—The Baltimore & Ohio Railroad Co.**
+
+**CITIZEN OF U.S.A. CERTIFICATE OF DISABLEMENT**
+
+**U.S. M**
+
+**Cleveland, Ohio May 3, 1949**
+
+**The Medical Examiner will forward this form to the Division Accountant, Timekeeper, or other officer in direct charge, who will
+**certifying, forward form direct to Superintendent Relief Department, Baltimore, Md.**
+
+**Form 5 No. 206959**
+
+**Cert. No. 659115**
+
+**Mr.**
+2872 W. 32nd St., Cleveland, 13, Ohio
+
+**Mr.**
+**Brakeman**
+in the
+**CT**
+**Dept.,**
+**Div'n.,**
+**Div'n.,**
+
+**Cleveland, Ohio**
+**May 3, 1949**
+
+**FROM**
+**4-22**
+**19-49**
+**M
+==================================================
+Batch 1, Image 4: 51185-247-0101.jpg
+user
+
+Extract text from the image. Then, analyze the text to provide a summary of the content. Structure the extracted data into a STRICT JSON format. Use double quotes for strings. Remove trailing commas. Ensure all braces and brackets are correctly closed. Correctly structure nested elements. In the JSON arrays, each element should be separated by a comma.
+The document may contain multiple types of bureaucratic forms with printed or handwritten information. Each line of tabular information, if available, should be accurately categorized and linked to relevant information. Use null values for any categories where no relevant information is found. If any other information is necessary, include it in the "other" category.
+Return the extracted information as a JSON object with the following structure:
+{
+    "ocr_text": "string",
+    "summary": "string",
+    "sections": [
+        {
+            "section_name": "string",
+            "fields": [
+                {
+                    "field_name": "string",
+                    "value": "string",
+                    "linked_information": {
+                        "personal_information": {
+                            "name": "string",
+                            "date_of_birth": "string",
+                            "social_security_no": "string",
+                            "employee_no": "string",
+                            "id_no": "string",
+                            "rp_certificate_no": "string"
+                        },
+                        "named_entities": [
+                            {
+                                "entity": "string",
+                                "type": "string"
+                            }
+                        ],
+                        "dates": [
+                            {
+                                "date": "string",
+                                "category": "string"
+                            }
+                        ],
+                        "monetary_amounts": [
+                            {
+                                "amount": "string",
+                                "category": "string"
+                            }
+                        ],
+                        "relationships": [
+                            {
+                                "entity1": "string",
+                                "relationship": "string",
+                                "entity2": "string"
+                            }
+                        ],
+                        "medical_information": [
+                            {
+                                "info": "string",
+                                "category": "string"
+                            }
+                        ],
+                        "family_information": [
+                            {
+                                "name": "string",
+                                "relationship": "string",
+                                "event": "string"
+                            }
+                        ],
+                        "employment_history": [
+                            {
+                                "date": "string",
+                                "position_description": "string",
+                                "division": "string",
+                                "department": "string",
+                                "location": "string",
+                                "rate_of_pay": "string",
+                                "remarks": "string"
+                            }
+                        ],
+                        "employment_events": [
+                            {
+                                "date": "string",
+                                "location": "string",
+                                "incident": "string",
+                                "action_taken": "string",
+                                "reference_numbers": [
+                                    "string"
+                                ]
+                            }
+                        ],
+                        "geographical_information": [
+                            "string"
+                        ],
+                        "document_specific_information": [
+                            "string"
+                        ],
+                        "other": [
+                            "string"
+                        ],
+                        "metadata": {
+                            "document_type": "string",
+                            "period": "string",
+                            "context": "string"
+                        },
+                        "sentiment": "string"
+                    }
+                }
+            ]
+        }
+    ]
+}
+assistant
+
+The provided input is an image of a letter. Here's the extracted text:
+
+**LAS:AS.**
+
+November 25, 1912.
+
+Mr. Edward McGowan, Secretary
+Trades and Labor Council
+E. Williamette Ave., Lincoln, Ill.
+
+Dear Sir and Brother:
+
+In continuation of our correspondence relative to the non-affiliation of certain local unions, please find herein enclosed copies of communications received from the Amal-gamated Association of Street and Electric Railway Employees of America and the International
+Typog
+...
+
+The extracted text is not a tabular data or a form with tabular information. However, I will structure the extracted text into a JSON object with the following structure:
+
+```json
+{
+  "ocr_text": "LAS:AS. November 25, 1912. Mr. Edward McGowan, Secretary Trades and Labor Council E. Williamette Ave., Lincoln, Ill. Dear Sir and Brother: In continuation of our correspondence relative to the non- affiliation
+==================================================
+Batch 1, Image 5: RDApp-206939Doresey001.jpg
+user
+
+Extract text from the image. Then, analyze the text to provide a summary of the content. Structure the extracted data into a STRICT JSON format. Use double quotes for strings. Remove trailing commas. Ensure all braces and brackets are correctly closed. Correctly structure nested elements. In the JSON arrays, each element should be separated by a comma.
+The document may contain multiple types of bureaucratic forms with printed or handwritten information. Each line of tabular information, if available, should be accurately categorized and linked to relevant information. Use null values for any categories where no relevant information is found. If any other information is necessary, include it in the "other" category.
+Return the extracted information as a JSON object with the following structure:
+{
+    "ocr_text": "string",
+    "summary": "string",
+    "sections": [
+        {
+            "section_name": "string",
+            "fields": [
+                {
+                    "field_name": "string",
+                    "value": "string",
+                    "linked_information": {
+                        "personal_information": {
+                            "name": "string",
+                            "date_of_birth": "string",
+                            "social_security_no": "string",
+                            "employee_no": "string",
+                            "id_no": "string",
+                            "rp_certificate_no": "string"
+                        },
+                        "named_entities": [
+                            {
+                                "entity": "string",
+                                "type": "string"
+                            }
+                        ],
+                        "dates": [
+                            {
+                                "date": "string",
+                                "category": "string"
+                            }
+                        ],
+                        "monetary_amounts": [
+                            {
+                                "amount": "string",
+                                "category": "string"
+                            }
+                        ],
+                        "relationships": [
+                            {
+                                "entity1": "string",
+                                "relationship": "string",
+                                "entity2": "string"
+                            }
+                        ],
+                        "medical_information": [
+                            {
+                                "info": "string",
+                                "category": "string"
+                            }
+                        ],
+                        "family_information": [
+                            {
+                                "name": "string",
+                                "relationship": "string",
+                                "event": "string"
+                            }
+                        ],
+                        "employment_history": [
+                            {
+                                "date": "string",
+                                "position_description": "string",
+                                "division": "string",
+                                "department": "string",
+                                "location": "string",
+                                "rate_of_pay": "string",
+                                "remarks": "string"
+                            }
+                        ],
+                        "employment_events": [
+                            {
+                                "date": "string",
+                                "location": "string",
+                                "incident": "string",
+                                "action_taken": "string",
+                                "reference_numbers": [
+                                    "string"
+                                ]
+                            }
+                        ],
+                        "geographical_information": [
+                            "string"
+                        ],
+                        "document_specific_information": [
+                            "string"
+                        ],
+                        "other": [
+                            "string"
+                        ],
+                        "metadata": {
+                            "document_type": "string",
+                            "period": "string",
+                            "context": "string"
+                        },
+                        "sentiment": "string"
+                    }
+                }
+            ]
+        }
+    ]
+}
+assistant
+
+**Extracted Text:**
+
+```
+THE BALTIMORE & OHIO R. CO.
+RE-LIABLE DEPARTMENT—THE BALTIMORE & OHIO R. CO.
+DISTRICT
+18-Seyler
+659115
+CERTIFICATE NO.
+CIVIL
+NAME
+THEODORE DORESEY
+2372 W. 52nd St.,
+Cleveland, 15, Ohio
+OCCUPN.
+Brakeman
+C.T.
+Alron
+Apr
+$5.50
+DIVISION
+Apr
+$5.50
+DIVISION
+Apr
+$5.50
+DIVISION
+Apr
+$5.50
+DIVISION
+Apr
+$5.50
+DIVESIT
+BEGAN
+4-22-49
+DIVESIT
+BEGAN
+4-22-49
+DIVESIT
+BEGAN
+4-22-49
+DIVESIT
+BEGAN
+4-22-49
+==================================================
+Batch 1, Image 6: RDApp-206939Doresey004.jpg
+user
+
+Extract text from the image. Then, analyze the text to provide a summary of the content. Structure the extracted data into a STRICT JSON format. Use double quotes for strings. Remove trailing commas. Ensure all braces and brackets are correctly closed. Correctly structure nested elements. In the JSON arrays, each element should be separated by a comma.
+The document may contain multiple types of bureaucratic forms with printed or handwritten information. Each line of tabular information, if available, should be accurately categorized and linked to relevant information. Use null values for any categories where no relevant information is found. If any other information is necessary, include it in the "other" category.
+Return the extracted information as a JSON object with the following structure:
+{
+    "ocr_text": "string",
+    "summary": "string",
+    "sections": [
+        {
+            "section_name": "string",
+            "fields": [
+                {
+                    "field_name": "string",
+                    "value": "string",
+                    "linked_information": {
+                        "personal_information": {
+                            "name": "string",
+                            "date_of_birth": "string",
+                            "social_security_no": "string",
+                            "employee_no": "string",
+                            "id_no": "string",
+                            "rp_certificate_no": "string"
+                        },
+                        "named_entities": [
+                            {
+                                "entity": "string",
+                                "type": "string"
+                            }
+                        ],
+                        "dates": [
+                            {
+                                "date": "string",
+                                "category": "string"
+                            }
+                        ],
+                        "monetary_amounts": [
+                            {
+                                "amount": "string",
+                                "category": "string"
+                            }
+                        ],
+                        "relationships": [
+                            {
+                                "entity1": "string",
+                                "relationship": "string",
+                                "entity2": "string"
+                            }
+                        ],
+                        "medical_information": [
+                            {
+                                "info": "string",
+                                "category": "string"
+                            }
+                        ],
+                        "family_information": [
+                            {
+                                "name": "string",
+                                "relationship": "string",
+                                "event": "string"
+                            }
+                        ],
+                        "employment_history": [
+                            {
+                                "date": "string",
+                                "position_description": "string",
+                                "division": "string",
+                                "department": "string",
+                                "location": "string",
+                                "rate_of_pay": "string",
+                                "remarks": "string"
+                            }
+                        ],
+                        "employment_events": [
+                            {
+                                "date": "string",
+                                "location": "string",
+                                "incident": "string",
+                                "action_taken": "string",
+                                "reference_numbers": [
+                                    "string"
+                                ]
+                            }
+                        ],
+                        "geographical_information": [
+                            "string"
+                        ],
+                        "document_specific_information": [
+                            "string"
+                        ],
+                        "other": [
+                            "string"
+                        ],
+                        "metadata": {
+                            "document_type": "string",
+                            "period": "string",
+                            "context": "string"
+                        },
+                        "sentiment": "string"
+                    }
+                }
+            ]
+        }
+    ]
+}
+assistant
+
+After extracting the text from the image, I will provide a summary of the content and structure the extracted data into a strict JSON format.
+
+**Extracted Text:**
+
+B & O. R. R. CO. RELIEF DEPARTMENT.
+NOTICE OF DISABLEMENT.
+NO. 206939
+... (rest of the text)
+
+**Summary:**
+
+The document is a notice of disablement from the B & O. R. R. Co. Relief Department, dated February 19, 1940. The document contains information about a medical examiner, a superintendent, and a medical examiner's name, which is followed by a series of tabular information. The document is a notice sent from Correena O'Hon., on February 26, 1940.
+
+**JSON Object:**
+
+```json
+{
+    "ocr_text": "B & O. R. R. CO. RELIEF DEPARTMENT. NOTICE OF DISABLEMENT. NO. 206939",
+==================================================
