@@ -15,7 +15,9 @@ model = MllamaForConditionalGeneration.from_pretrained(
 )
 processor = AutoProcessor.from_pretrained(model_id)
 
-
+# Read the entire content from rolls_prompt.txt
+with open("rolls_prompt.txt", "r") as file:
+    full_prompt_text = file.read()
 
 
 # Specify the directory containing your images
@@ -39,7 +41,7 @@ for image_file in image_files:
         messages = [
             {"role": "user", "content": [
                 {"type": "image"},
-                {"type": "text", "text": "Please extract the information from this page and output in strict json: "}
+                {"type": "text", "text": full_prompt_text}
             ]}
         ]
         input_text = processor.apply_chat_template(messages, add_generation_prompt=True)

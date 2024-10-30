@@ -1,0 +1,1 @@
+Perform OCR on the document to extract all text.

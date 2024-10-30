@@ -95,7 +95,7 @@ logging.info("Starting batch size testing with binary search...")
 
 max_batch_size = None
 low = 1
-high = 1024  # Adjust as needed based on your GPU's capacity
+high = 12  # Adjust as needed based on your GPU's capacity
 
 while low <= high:
     mid = (low + high) // 2
