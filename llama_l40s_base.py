@@ -4,9 +4,6 @@ from PIL import Image
 from transformers import MllamaForConditionalGeneration, AutoProcessor
 import time
 import statistics
-import cProfile
-import pstats
-from io import StringIO
 
 def process_images():
     # Model and Processor Configuration
@@ -81,8 +78,11 @@ def process_images():
             ).to(model.device)
     
             # Generate the model's output
-            output = model.generate(**inputs, max_new_tokens=500)
-    
+            output = model.generate(**inputs, max_new_tokens=1000)
+
+           
+
+
             # Decode and display the output
             print(f"Image: {image_file}")
             print(processor.decode(output[0]))
@@ -119,15 +119,4 @@ def process_images():
         print("No images were processed successfully.")
 
 if __name__ == "__main__":
-       
-    try:
-        process_images()
-    finally:
-        profiler.disable()
-        # Create a stream to hold the profiling results
-        s = StringIO()
-        sortby = 'cumulative'  # You can sort by 'time', 'cumulative', etc.
-        ps = pstats.Stats(profiler, stream=s).sort_stats(sortby)
-        ps.print_stats(50)  # Print top 50 lines of the profiling report
-        print("\nProfiling Results:\n")
-        print(s.getvalue())
+    process_images()
