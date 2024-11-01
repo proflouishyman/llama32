@@ -6,15 +6,6 @@ from transformers import AutoProcessor, AutoModelForVision2Seq
 from trl import SFTTrainer, SFTConfig
 import logging
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# Logging Configuration
-LOG_BASE_NAME = 'llama_l40s_train_log'
-LOG_EXTENSION = '.log'
-LOG_LEVEL = logging.DEBUG  # Options: DEBUG, INFO, WARNING, ERROR, CRITICAL
-
 
 
 # Configuration
@@ -26,8 +17,12 @@ PROMPT_FILE = os.getenv('PROMPT_FILE', 'gompers_prompt.txt')
 
 
 # ============================
-# Helper Functions
+# Logging
 # ============================
+# Set up logging configuration
+LOG_BASE_NAME = 'llama_l40s_train_log'
+LOG_EXTENSION = '.log'
+LOG_LEVEL = logging.DEBUG  # Options: DEBUG, INFO, WARNING, ERROR, CRITICAL
 
 def get_log_file_name(base_name=LOG_BASE_NAME, extension=LOG_EXTENSION):
     """Generates a unique log file name by appending an incrementing number."""
@@ -40,13 +35,11 @@ def get_log_file_name(base_name=LOG_BASE_NAME, extension=LOG_EXTENSION):
     
     return log_file_name
 
-#Logging
+# Create logger
+logger = logging.getLogger('app_logger')  # Use a generic logger name
+logger.setLevel(LOG_LEVEL)
 
-# Setup logging
-logger = logging.getLogger('LlamaProcessor')
-logger.setLevel(LOG_LEVEL)  # Set logging level based on configuration
-
-# Prevent adding multiple handlers if the function is called multiple times
+# Prevent adding multiple handlers
 if not logger.handlers:
     # Define log format
     log_format = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
@@ -57,7 +50,7 @@ if not logger.handlers:
     console_handler.setFormatter(log_format)
 
     # Create file handler and set level
-    log_file_name = get_log_file_name()
+    log_file_name = get_log_file_name()  # Use the unique log file name function
     file_handler = logging.FileHandler(log_file_name)
     file_handler.setLevel(LOG_LEVEL)
     file_handler.setFormatter(log_format)
@@ -67,7 +60,6 @@ if not logger.handlers:
     logger.addHandler(file_handler)
 
     logger.info(f"Logging initialized. Log file: {log_file_name}")
-
 
 
 
@@ -144,7 +136,7 @@ def main():
     model = AutoModelForVision2Seq.from_pretrained(
         MODEL_ID,
         torch_dtype=torch.bfloat16, #switched from bfloat16 to float16
-        device_map="auto"
+        #device_map="auto"  #needs to be commented out for accelerate and deepspeed
     )
 
 
@@ -163,17 +155,17 @@ def main():
     training_args = SFTConfig(
         output_dir=OUTPUT_DIR,
         per_device_train_batch_size=1,
-        gradient_accumulation_steps=4,
+        gradient_accumulation_steps=2,
         gradient_checkpointing=False,
         bf16=True,
         remove_unused_columns=False,
+        dataset_kwargs={"skip_prepare_dataset": True}, #crucial for vision training see https://huggingface.co/docs/trl/en/sft_trainer#a-custom-collator-for-processing-multi-modal-data
+        deepspeed="deepspeed_config.json",  # Specify DeepSpeed config file
         logging_steps=10,
         save_steps=500,
         evaluation_strategy="steps",
         eval_steps=100,
     )
-
-    training_args.dataset_kwargs = {"skip_prepare_dataset": True} #crucial!
 
     # Initialize trainer
     trainer = SFTTrainer(
