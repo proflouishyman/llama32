@@ -1,5 +1,36 @@
 # Date: 2024-11-01
-# Purpose: Clean up text files by applying specific rules to remove unwanted markers and characters
+# Purpose: This script selects 20 random .llama32 files from the source directory,
+# clears the destination directory, and copies the selected files into it.
+
+import os
+import shutil
+import random
+
+# Variables for source and destination directories
+SOURCE_DIR = "/data/lhyman6/OCR/scripts/data/second_images"
+DESTINATION_DIR = "/data/lhyman6/OCR/scripts_newvision/sample"
+FILE_EXTENSION = ".llama32"
+NUM_FILES = 20
+
+# Step 1: Clear the destination directory
+if os.path.exists(DESTINATION_DIR):
+    shutil.rmtree(DESTINATION_DIR)
+os.makedirs(DESTINATION_DIR)
+
+# Step 2: Get list of .llama32 files in the source directory
+llama_files = [f for f in os.listdir(SOURCE_DIR) if f.endswith(FILE_EXTENSION)]
+
+# Step 3: Select 20 random files (or fewer if less than 20 available)
+selected_files = random.sample(llama_files, min(NUM_FILES, len(llama_files)))
+
+# Step 4: Copy each selected file to the destination directory
+for file_name in selected_files:
+    src_file_path = os.path.join(SOURCE_DIR, file_name)
+    dest_file_path = os.path.join(DESTINATION_DIR, file_name)
+    shutil.copy(src_file_path, dest_file_path)
+
+print(f"Copied {len(selected_files)} .llama32 files to {DESTINATION_DIR}")
+
 
 import os
 import re

@@ -1,4 +1,5 @@
 import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 import torch
 from PIL import Image
 from datasets import load_dataset
@@ -90,6 +91,9 @@ def load_image(image_path):
         return Image.new('RGB', (224, 224))
 
 def collate_fn(examples):
+
+    print("Example keys:", examples[0].keys()) #for debug
+
     # Create messages with our extraction prompt
     messages = [
         [
@@ -135,9 +139,14 @@ def main():
     processor = AutoProcessor.from_pretrained(MODEL_ID)
     model = AutoModelForVision2Seq.from_pretrained(
         MODEL_ID,
-        torch_dtype=torch.float16, #switched from bfloat16 to float16
+        torch_dtype=torch.bfloat16, #switched from bfloat16 to float16
         device_map="auto"
     )
+
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+    model.to(device)
+    print(device)
 
     # Log the prompt being used
     logger.info(f"Using prompt: {USER_PROMPT}")
@@ -155,9 +164,9 @@ def main():
         output_dir=OUTPUT_DIR,
         per_device_train_batch_size=1,
         gradient_accumulation_steps=4,
-        gradient_checkpointing=True,
-        fp16=True,
-        remove_unused_columns=False,
+        gradient_checkpointing=False,
+        bf16=True,
+        #remove_unused_columns=False,
         logging_steps=10,
         save_steps=500,
         evaluation_strategy="steps",
@@ -173,7 +182,12 @@ def main():
         data_collator=collate_fn,
         tokenizer=processor.tokenizer,
     )
-
+    
+    
+    #Manually cast model to FP16
+    model=model.half()
+    
+    
     # Train
     logger.info("Starting training...")
     trainer.train()
