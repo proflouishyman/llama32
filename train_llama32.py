@@ -166,12 +166,14 @@ def main():
         gradient_accumulation_steps=4,
         gradient_checkpointing=False,
         bf16=True,
-        #remove_unused_columns=False,
+        remove_unused_columns=False,
         logging_steps=10,
         save_steps=500,
         evaluation_strategy="steps",
         eval_steps=100,
     )
+
+    training_args.dataset_kwargs = {"skip_prepare_dataset": True} #crucial!
 
     # Initialize trainer
     trainer = SFTTrainer(
@@ -180,7 +182,7 @@ def main():
         train_dataset=dataset["train"],
         eval_dataset=dataset["test"],
         data_collator=collate_fn,
-        tokenizer=processor.tokenizer,
+        #tokenizer=processor.tokenizer, #this fixes teh preprocessing error? maybe?
     )
     
     
