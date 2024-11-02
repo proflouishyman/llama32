@@ -12,7 +12,7 @@ import logging
 MODEL_ID = "meta-llama/Llama-3.2-11B-Vision-Instruct"
 TRAIN_JSON = 'training/annotations/train.json'
 TEST_JSON = 'training/annotations/test.json'
-OUTPUT_DIR = 'l40s'
+OUTPUT_DIR = 'ica100_llama'
 PROMPT_FILE = os.getenv('PROMPT_FILE', 'gompers_prompt.txt')
 
 
