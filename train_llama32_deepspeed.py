@@ -198,6 +198,7 @@ def initialize_trainer(model, dataset):
         save_steps=50,
         evaluation_strategy="steps",
         eval_steps=100,
+        save_total_limit=3,
 
         # Learning rate and scheduler settings
         learning_rate=1e-5,                     # Initial learning rate
