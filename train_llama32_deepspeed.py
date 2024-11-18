@@ -1,6 +1,9 @@
+# /data/lhyman6/OCR/scripts_newvision/llama/train_llama32_deepspeed.py
+#later file
 import os
+import glob  # Added for checkpoint handling
 import torch
-from transformers import AutoProcessor, AutoModelForVision2Seq
+from transformers import AutoProcessor, AutoModelForVision2Seq, TrainerCallback, TrainerState, TrainerControl
 from trl import SFTTrainer, SFTConfig
 import logging
 import psutil
@@ -8,6 +11,8 @@ from PIL import Image
 from datasets import load_dataset
 from functools import wraps
 from huggingface_hub import login
+
+
 
 # ============================
 # Authenticate with HuggingFace
@@ -35,7 +40,7 @@ if not logger.handlers:
     logger.addHandler(console_handler)
 
     # File handler
-    log_file_name = "llama_l40s_train_log.log"
+    log_file_name = "llama_ica100_train_log.log"
     file_handler = logging.FileHandler(log_file_name)
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(log_format)
@@ -62,6 +67,7 @@ except FileNotFoundError:
 # ============================
 
 def log_memory_usage(stage=""):
+    
     process = psutil.Process(os.getpid())
     mem_info = process.memory_info()
     rss_mb = mem_info.rss / (1024 ** 2)  # Resident Set Size in MB
@@ -72,7 +78,8 @@ def log_memory_usage(stage=""):
     if torch.cuda.is_available():
         gpu_mem = torch.cuda.memory_reserved() / (1024 ** 2)  # in MB
         gpu_mem_alloc = torch.cuda.memory_allocated() / (1024 ** 2)
-        logger.info(f"[{stage}] GPU Memory Usage: Reserved={gpu_mem:.2f} MB, Allocated={gpu_mem_alloc:.2f} MB")
+        gpu_mem_free = gpu_mem - gpu_mem_alloc
+        logger.info(f"[{stage}] GPU Memory Usage: Reserved={gpu_mem:.2f} MB, Allocated={gpu_mem_alloc:.2f} MB, Free={gpu_mem_free:.2f} MB")
 
 def profile_memory(stage_name):
     def decorator(func):
@@ -162,6 +169,11 @@ def collate_fn(examples):
     labels[labels == image_token_id] = -100
     
     batch["labels"] = labels
+
+    # Delete intermediate variables to free memory
+    del messages, texts, images, labels
+    torch.cuda.empty_cache()
+
     return batch
 
 # ============================
@@ -173,7 +185,7 @@ def initialize_trainer(model, dataset):
     OUTPUT_DIR = 'l40s'
     training_args = SFTConfig(
         output_dir=OUTPUT_DIR,
-        per_device_train_batch_size=4,          # Batch size per GPU
+        per_device_train_batch_size=2,          # Batch size per GPU
         gradient_accumulation_steps=4,          # Accumulate gradients over 8 steps
         gradient_checkpointing=True,
         fp16=True,                              # Enable FP16
@@ -182,19 +194,31 @@ def initialize_trainer(model, dataset):
             "skip_prepare_dataset": True        #needed for multimodal
         },
         deepspeed="deepspeed_config.json",      # Specify DeepSpeed config file
-        logging_steps=10,
+        logging_steps=100,
         save_steps=50,
         evaluation_strategy="steps",
         eval_steps=100,
 
         # Learning rate and scheduler settings
-        learning_rate=3e-5,                     # Initial learning rate
+        learning_rate=1e-5,                     # Initial learning rate
         lr_scheduler_type="linear",
         num_train_epochs=3,
         warmup_steps=1000,
         weight_decay=3e-7,
         max_seq_length=1024,
+
+        #handle gradient clipping
+        max_grad_norm=1.0,
+
+        #use more cpus
+        dataloader_num_workers=12,
+        
     )
+
+
+    # Initialize the custom callback
+    memory_callback = FreeMemoryCallback(interval="step")  # Options: "epoch", "step", "both"
+
 
     # Initialize trainer
     trainer = SFTTrainer(
@@ -203,8 +227,57 @@ def initialize_trainer(model, dataset):
         train_dataset=dataset["train"],
         eval_dataset=dataset["test"],
         data_collator=collate_fn,
+        callbacks=[memory_callback],  # Add the callback here
     )
     return trainer
+
+# ==================
+# Memory Management
+#===================
+
+def free_gpu_memory(stage=""):
+    """
+    Frees GPU memory by emptying the cache and collecting garbage.
+
+    Args:
+        stage (str): Optional description of when this function is called.
+    """
+    import torch
+    import gc
+
+    gc.collect()
+    torch.cuda.empty_cache()
+    if torch.cuda.is_available():
+        torch.cuda.ipc_collect()
+        logger.info(f"[{stage}] Freed GPU memory")
+
+
+class FreeMemoryCallback(TrainerCallback):
+    """
+    A Hugging Face Trainer callback to free GPU memory at specified intervals.
+    """
+
+    def __init__(self, interval="epoch"):
+        """
+        Initializes the callback.
+
+        Args:
+            interval (str): When to free memory. Options:
+                            - "step": after every training step
+                            - "epoch": after every epoch
+                            - "custom": implement custom logic
+        """
+        self.interval = interval
+
+    def on_epoch_end(self, args, state: TrainerState, control: TrainerControl, **kwargs):
+        if self.interval in ["epoch", "both"]:
+            free_gpu_memory(stage="After Epoch")
+        return control
+
+    def on_step_end(self, args, state: TrainerState, control: TrainerControl, **kwargs):
+        if self.interval in ["step", "both"]:
+            free_gpu_memory(stage=f"After Step {state.global_step}")
+        return control
 
 # ============================
 # Main Training Function
@@ -224,20 +297,36 @@ def main():
     # Initialize trainer with memory profiling
     trainer = initialize_trainer(model, dataset)
 
+    # Determine the checkpoint to resume from, if any
+    checkpoint = None
+    OUTPUT_DIR = 'l40s'
+
+    # Search for checkpoints in the output directory
+    checkpoints = list(glob.glob(os.path.join(OUTPUT_DIR, "checkpoint-*")))
+    if checkpoints:
+        # Sort checkpoints by modification time (latest first)
+        checkpoints = sorted(checkpoints, key=lambda x: os.path.getmtime(x), reverse=True)
+        checkpoint = checkpoints[0]
+        logger.info(f"Found checkpoint: {checkpoint}")
+    else:
+        logger.info("No checkpoints found. Starting training from scratch.")
+
     # Log memory before training
     log_memory_usage("Before Training")
 
+    free_gpu_memory("Pre-Training")
+
     # Train with memory profiling
     logger.info("Starting training...")
-    trainer.train()
+    trainer.train(resume_from_checkpoint=checkpoint)
 
     # Log memory after training
     log_memory_usage("After Training")
 
     # Save with memory profiling
     logger.info("Saving model and processor...")
-    trainer.save_model('l40s')
-    processor.save_pretrained('l40s')
+    trainer.save_model(OUTPUT_DIR)
+    processor.save_pretrained(OUTPUT_DIR)
 
     # Log final memory usage
     log_memory_usage("End")
