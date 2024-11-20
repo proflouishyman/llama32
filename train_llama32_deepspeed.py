@@ -14,6 +14,9 @@ from huggingface_hub import login
 
 
 
+checkpoint_dir='slower'
+
+
 # ============================
 # Authenticate with HuggingFace
 # ============================
@@ -174,7 +177,34 @@ def collate_fn(examples):
     del messages, texts, images, labels
     torch.cuda.empty_cache()
 
+
+    # logger.info(f"Input IDs shape: {batch['input_ids'].shape}")
+    # logger.info(f"Labels shape: {batch['labels'].shape}")
     return batch
+
+# ============================
+#   Debugging Evaluation
+# ============================
+def check_eval_dataset(trainer):
+    logger.info("Checking evaluation dataset...")
+    eval_dataset = trainer.eval_dataset
+    for i in range(3):  # Check first 3 examples
+        example = eval_dataset[i]
+        logger.info(f"\nExample {i}:")
+        logger.info(f"Input text: {example['messages']}")
+        logger.info(f"Image path: {example['images'][0]}")
+        
+        # Test image loading
+        try:
+            image = load_image(example['images'][0])
+            logger.info(f"Image loaded successfully: {image.size}")
+        except Exception as e:
+            logger.error(f"Failed to load image: {e}")
+            
+        # Process example through collate_fn
+        batch = collate_fn([example])
+        logger.info(f"Processed shapes - Input IDs: {batch['input_ids'].shape}, Labels: {batch['labels'].shape}")
+
 
 # ============================
 # Trainer Initialization
@@ -182,11 +212,11 @@ def collate_fn(examples):
 
 @profile_memory("Initialize Trainer")
 def initialize_trainer(model, dataset):
-    OUTPUT_DIR = 'l40s'
+    OUTPUT_DIR = checkpoint_dir
     training_args = SFTConfig(
         output_dir=OUTPUT_DIR,
-        per_device_train_batch_size=2,          # Batch size per GPU
-        gradient_accumulation_steps=4,          # Accumulate gradients over 8 steps
+        per_device_train_batch_size=1,          # Batch size per GPU
+        gradient_accumulation_steps=16,          # Accumulate gradients over 8 steps
         gradient_checkpointing=True,
         fp16=True,                              # Enable FP16
         remove_unused_columns=False,
@@ -194,18 +224,18 @@ def initialize_trainer(model, dataset):
             "skip_prepare_dataset": True        #needed for multimodal
         },
         deepspeed="deepspeed_config.json",      # Specify DeepSpeed config file
-        logging_steps=100,
-        save_steps=50,
+        logging_steps=10,
+        save_steps=100,
         evaluation_strategy="steps",
         eval_steps=100,
         save_total_limit=3,
 
         # Learning rate and scheduler settings
-        learning_rate=1e-5,                     # Initial learning rate
+        learning_rate=5e-6,                     # Initial learning rate
         lr_scheduler_type="linear",
         num_train_epochs=3,
-        warmup_steps=1000,
-        weight_decay=3e-7,
+        warmup_steps=2000,
+        weight_decay=0.01,
         max_seq_length=1024,
 
         #handle gradient clipping
@@ -231,6 +261,11 @@ def initialize_trainer(model, dataset):
         callbacks=[memory_callback],  # Add the callback here
     )
     return trainer
+
+    
+    # Add evaluation dataset check
+    check_eval_dataset(trainer)
+
 
 # ==================
 # Memory Management
@@ -300,7 +335,7 @@ def main():
 
     # Determine the checkpoint to resume from, if any
     checkpoint = None
-    OUTPUT_DIR = 'l40s'
+    OUTPUT_DIR = checkpoint_dir
 
     # Search for checkpoints in the output directory
     checkpoints = list(glob.glob(os.path.join(OUTPUT_DIR, "checkpoint-*")))
