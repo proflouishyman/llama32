@@ -11,13 +11,13 @@ INPUT_CSV_PATH = '/data/lhyman6/OCR/scripts_newvision/llama/complete_testing_csv
 TEXT_FILES_DIRECTORY = '/data/lhyman6/OCR/scripts/data/second_images'  # Replace with your actual directory path
 
 # Extension of the text files
-TEXT_FILE_EXTENSION = '.llama32'
+TEXT_FILE_EXTENSION = '.jpg.llama32.clean'
 
 # Name of the new column to be added
 NEW_COLUMN_NAME = 'LLAMA32_BASE'
 
 # Path for the output CSV file
-OUTPUT_CSV_PATH = 'complete_with_llama32.csv'  # You can change this as needed
+OUTPUT_CSV_PATH = 'complete_with_llama32_clean.csv'  # You can change this as needed
 
 # Path for the log file
 LOG_FILE_PATH = 'processing.log'  # Log file to record processing details and errors

@@ -14,8 +14,8 @@ from huggingface_hub import login
 
 
 
-checkpoint_dir='slower'
-
+checkpoint_dir='/scratch4/lhyman6/llama_training/11_20_gradient'
+log_name ="llama_ica100_train_log_11_21.log"
 
 # ============================
 # Authenticate with HuggingFace
@@ -43,7 +43,7 @@ if not logger.handlers:
     logger.addHandler(console_handler)
 
     # File handler
-    log_file_name = "llama_ica100_train_log.log"
+    log_file_name = log_name
     file_handler = logging.FileHandler(log_file_name)
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(log_format)
@@ -215,8 +215,8 @@ def initialize_trainer(model, dataset):
     OUTPUT_DIR = checkpoint_dir
     training_args = SFTConfig(
         output_dir=OUTPUT_DIR,
-        per_device_train_batch_size=1,          # Batch size per GPU
-        gradient_accumulation_steps=16,          # Accumulate gradients over 8 steps
+        per_device_train_batch_size=2,          # Batch size per GPU
+        gradient_accumulation_steps=8,          # Accumulate gradients over 8 steps
         gradient_checkpointing=True,
         fp16=True,                              # Enable FP16
         remove_unused_columns=False,
@@ -231,10 +231,10 @@ def initialize_trainer(model, dataset):
         save_total_limit=3,
 
         # Learning rate and scheduler settings
-        learning_rate=5e-6,                     # Initial learning rate
-        lr_scheduler_type="linear",
+        learning_rate=5e-5,                     # Initial learning rate
+        lr_scheduler_type="cosine_with_restarts",
         num_train_epochs=3,
-        warmup_steps=2000,
+        warmup_steps=500,
         weight_decay=0.01,
         max_seq_length=1024,
 
@@ -260,11 +260,16 @@ def initialize_trainer(model, dataset):
         data_collator=collate_fn,
         callbacks=[memory_callback],  # Add the callback here
     )
-    return trainer
+
+
 
     
     # Add evaluation dataset check
     check_eval_dataset(trainer)
+
+    return trainer
+
+    
 
 
 # ==================
@@ -315,6 +320,29 @@ class FreeMemoryCallback(TrainerCallback):
             free_gpu_memory(stage=f"After Step {state.global_step}")
         return control
 
+
+# ============================
+# QOL Functions
+# ============================
+def create_checkpoint_dir(directory):
+    """
+    Creates the checkpoint directory if it doesn't exist.
+
+    Args:
+        directory (str): Path to the checkpoint directory.
+    """
+    if not os.path.exists(directory):
+        try:
+            os.makedirs(directory, exist_ok=True)
+            logger.info(f"Created checkpoint directory at: {directory}")
+        except Exception as e:
+            logger.error(f"Failed to create checkpoint directory {directory}: {e}")
+            raise
+    else:
+        logger.info(f"Checkpoint directory already exists at: {directory}")
+
+
+
 # ============================
 # Main Training Function
 # ============================
@@ -336,6 +364,9 @@ def main():
     # Determine the checkpoint to resume from, if any
     checkpoint = None
     OUTPUT_DIR = checkpoint_dir
+
+    # **Create the checkpoint directory if it doesn't exist**
+    create_checkpoint_dir(OUTPUT_DIR)
 
     # Search for checkpoints in the output directory
     checkpoints = list(glob.glob(os.path.join(OUTPUT_DIR, "checkpoint-*")))

@@ -5,7 +5,7 @@ import os
 import re
 
 # Variables
-directory = '/data/lhyman6/OCR/scripts_newvision/sample'  # Specify the directory containing the text files
+directory = '/data/lhyman6/OCR/scripts/data/second_images/'  # Specify the directory containing the text files
 file_extension = '.llama32'  # Specify the file extension to process
 
 # Function to clean text
