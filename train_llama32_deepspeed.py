@@ -12,7 +12,7 @@ from datasets import load_dataset
 from functools import wraps
 from huggingface_hub import login
 
-
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 checkpoint_dir='/scratch4/lhyman6/llama_training/11_20_gradient'
 log_name ="llama_ica100_train_log_11_21.log"
