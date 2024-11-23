@@ -22,7 +22,7 @@ CONFIG = {  # DO NOT REMOVE COMMENTED METRICS
         "primary_input": "truncated_csv.csv",
         "bart_input": "processed_1000_testing_csv.csv",
         "output": "updated_file_comma.csv",
-        "output_sample": "sample_updated_file_comma2.csv",
+        "output_sample": "sample_updated_file_comma3.csv",
     },
     "separators": {
         "primary_input": ",",
@@ -57,7 +57,7 @@ CONFIG = {  # DO NOT REMOVE COMMENTED METRICS
         ],
     },
     "sample": {
-        "size": 100,
+        "size": 50,
     },
     "debugging": {
         "drop_after_1000": True,
@@ -142,7 +142,7 @@ def normalize_text(text: str, max_chars: int, phrases_to_delete: List[str] = [])
         # Use regex to remove the phrase case-insensitively
         pattern = re.compile(re.escape(phrase), re.IGNORECASE)
         text = pattern.sub('', text)
-    
+
     # Step 2: Decode escape sequences (e.g., '\\n' -> '\n', '\\t' -> '\t', '\\\\' -> '\\')
     try:
         # Replace double backslashes with single backslashes to ensure correct decoding
@@ -264,51 +264,61 @@ def get_differences(text1: str, text2: str, max_length: int) -> str:
     differences = ' '.join(changes)
     return differences[:max_length] + '... [truncated]' if len(differences) > max_length else differences
 
-def compare_texts(row: pd.Series, method_col: str, thresholds: Dict[str, float], max_diff_length: int) -> pd.Series:
+def compare_texts(
+    row: pd.Series,
+    method_col: str,
+    thresholds: Dict[str, float],
+    max_diff_length: int,
+    active_metrics: List[str]
+) -> pd.Series:
     """
     Compares normalized transcription with a specific method's transcription.
-    Computes similarities using difflib, FuzzyWuzzy, Jaccard similarity, BLEU, WER, Precision, and Recall.
+    Computes similarities only for active metrics specified in the configuration.
     """
     human_text = row['normalized_transcription'].strip() if isinstance(row['normalized_transcription'], str) else ''
     method_text = row[f'normalized_{method_col}'].strip() if isinstance(row[f'normalized_{method_col}'], str) else ''
-    
-    # Compute similarities
-    similarity_difflib = compute_similarity_difflib(human_text, method_text)
-    equal_difflib = similarity_difflib >= thresholds['difflib']
-    
-    similarity_fuzzy = compute_similarity_fuzzywuzzy(human_text, method_text)
-    equal_fuzzy = similarity_fuzzy['fuzz_ratio'] >= thresholds['fuzzywuzzy']
-    
-    similarity_jaccard = compute_jaccard_similarity(human_text, method_text)
-    equal_jaccard = similarity_jaccard >= thresholds['jaccard']
-    
-    similarity_bleu = compute_bleu_score(human_text, method_text)
-    similarity_wer = compute_word_error_rate(human_text, method_text)
-    
-    # Compute Precision and Recall
-    similarity_precision = compute_precision(human_text, method_text)
-    similarity_recall = compute_recall(human_text, method_text)
-    
+
+    results = {}
+
+    # Compute similarities based on active metrics
+    if 'similarity_difflib' in active_metrics:
+        similarity_difflib = compute_similarity_difflib(human_text, method_text)
+        equal_difflib = similarity_difflib >= thresholds.get('difflib', 0.0)
+        results[f'{method_col}_similarity_difflib'] = similarity_difflib
+        results[f'{method_col}_equal_difflib'] = equal_difflib
+
+    if 'fuzz_ratio' in active_metrics:
+        similarity_fuzzy = compute_similarity_fuzzywuzzy(human_text, method_text)
+        results.update({f'{method_col}_{k}': v for k, v in similarity_fuzzy.items()})
+        equal_fuzzy = similarity_fuzzy['fuzz_ratio'] >= thresholds.get('fuzzywuzzy', 0.0)
+        results[f'{method_col}_equal_fuzzywuzzy'] = equal_fuzzy
+
+    if 'jaccard_similarity' in active_metrics:
+        similarity_jaccard = compute_jaccard_similarity(human_text, method_text)
+        equal_jaccard = similarity_jaccard >= thresholds.get('jaccard', 0.0)
+        results[f'{method_col}_jaccard_similarity'] = similarity_jaccard
+        results[f'{method_col}_equal_jaccard'] = equal_jaccard
+
+    if 'bleu_score' in active_metrics:
+        similarity_bleu = compute_bleu_score(human_text, method_text)
+        results[f'{method_col}_bleu_score'] = similarity_bleu
+
+    if 'word_error_rate' in active_metrics:
+        similarity_wer = compute_word_error_rate(human_text, method_text)
+        results[f'{method_col}_word_error_rate'] = similarity_wer
+
+    if 'precision' in active_metrics:
+        similarity_precision = compute_precision(human_text, method_text)
+        results[f'{method_col}_precision'] = similarity_precision
+
+    if 'recall' in active_metrics:
+        similarity_recall = compute_recall(human_text, method_text)
+        results[f'{method_col}_recall'] = similarity_recall
+
+    # Always compute differences unless specified otherwise
     differences = get_differences(human_text, method_text, max_diff_length)
-    
-    # Compile results
-    results = {
-        f'{method_col}_equal_difflib': equal_difflib,
-        f'{method_col}_similarity_difflib': similarity_difflib,
-        f'{method_col}_fuzz_ratio': similarity_fuzzy['fuzz_ratio'],
-        f'{method_col}_fuzz_partial_ratio': similarity_fuzzy['fuzz_partial_ratio'],
-        f'{method_col}_fuzz_token_sort_ratio': similarity_fuzzy['fuzz_token_sort_ratio'],
-        f'{method_col}_fuzz_token_set_ratio': similarity_fuzzy['fuzz_token_set_ratio'],
-        f'{method_col}_equal_fuzzywuzzy': equal_fuzzy,
-        f'{method_col}_jaccard_similarity': similarity_jaccard,
-        f'{method_col}_equal_jaccard': equal_jaccard,
-        f'{method_col}_bleu_score': similarity_bleu,
-        f'{method_col}_word_error_rate': similarity_wer,
-        f'{method_col}_precision': similarity_precision,  # Added Precision
-        f'{method_col}_recall': similarity_recall,        # Added Recall
-        f'{method_col}_differences': differences
-    }
-    
+    results[f'{method_col}_differences'] = differences
+
     return pd.Series(results)
 
 def detect_repetition(text: str, phrase_length: int = 3, repetition_threshold: int = 3) -> bool:
@@ -499,6 +509,8 @@ def generate_summary_statistics(df: pd.DataFrame, methods: List[str], metrics: L
                     }
                 else:
                     logger.warning(f"Column '{column}' is not numeric and will be skipped in summary statistics.")
+            else:
+                logger.warning(f"Column '{column}' not found. Skipping this metric for method '{method}'.")
         if summary_data:
             summary_df = pd.DataFrame(summary_data).T[['Mean', 'Median', 'Std Dev', 'Min', 'Max', '25%', '75%']]
             summary_csv = os.path.join(output_dir, f'summary_statistics_{metric}.csv')
@@ -568,6 +580,7 @@ def plot_bar_chart(df: pd.DataFrame, methods: List[str], metric: str, output_dir
             data.append({'Model': method, metric.capitalize(): value})
         else:
             # Handle missing columns by assigning NaN or a default value
+            logger.warning(f"Column '{column}' not found. Assigning 0.0 for method '{method}'.")
             data.append({'Model': method, metric.capitalize(): 0.0})
 
     metric_df = pd.DataFrame(data)
@@ -623,7 +636,6 @@ def plot_bar_chart(df: pd.DataFrame, methods: List[str], metric: str, output_dir
 # =======================
 # Histogram Functions
 # =======================
-
 def generate_and_save_histogram_data(df: pd.DataFrame, methods: List[str], metrics: List[str], output_dir: str) -> None:
     """
     Generates histogram data with 10% bin sizes for each model and metric and saves them as CSV files.
@@ -637,15 +649,21 @@ def generate_and_save_histogram_data(df: pd.DataFrame, methods: List[str], metri
     bin_edges = [i for i in range(0, 101, 10)]  # 0,10,20,...,100
     
     for metric in metrics:
-        histogram_data = {'Model': methods}
+        histogram_data = {'Bin': [f'{bin_edges[i]}-{bin_edges[i+1]}%' for i in range(len(bin_edges)-1)]}
         for method in methods:
             column = f'{method}_{metric}'
             if column in df.columns:
                 # Convert metric to percentage
                 data = df[column] * 100
-                counts = pd.cut(data, bins=bin_edges, right=False, include_lowest=True).value_counts().sort_index()
+                counts = pd.cut(
+                    data, 
+                    bins=bin_edges, 
+                    right=False, 
+                    include_lowest=True
+                ).value_counts().sort_index()
                 histogram_data[method] = counts.values
             else:
+                logger.warning(f"Column '{column}' not found. Assigning zero counts for method '{method}'.")
                 histogram_data[method] = [0] * (len(bin_edges) - 1)
         
         histogram_df = pd.DataFrame(histogram_data)
@@ -662,9 +680,6 @@ def plot_histograms(methods: List[str], metrics: List[str], output_dir_data: str
         output_dir_data (str): Directory where histogram data CSVs are saved.
         output_dir_plots (str): Directory where histogram plots will be saved.
     """
-    bin_labels = [f'{i}-{i+10}%' for i in range(0, 100, 10)]
-    bin_centers = [i + 5 for i in range(0, 100, 10)]
-    
     for metric in metrics:
         data_path = os.path.join(output_dir_data, f'histogram_data_{metric}.csv')
         if not os.path.exists(data_path):
@@ -674,24 +689,25 @@ def plot_histograms(methods: List[str], metrics: List[str], output_dir_data: str
         histogram_df = pd.read_csv(data_path)
         plt.figure(figsize=(14, 8))
         
-        # Plot each model's histogram
-        for idx, method in enumerate(methods):
-            if method in histogram_df.columns:
-                counts = histogram_df[method]
-                # Offset bars for each model to prevent complete overlap
-                offset = (idx - len(methods)/2) * 0.8  # Adjust offset based on number of methods
-                plt.bar(
-                    [x + offset for x in bin_centers],
-                    counts,
-                    width=8,
-                    alpha=0.6,
-                    label=method
-                )
+        # Convert Bin labels to categorical for proper ordering
+        histogram_df['Bin'] = pd.Categorical(histogram_df['Bin'], categories=histogram_df['Bin'], ordered=True)
+        
+        # Melt the DataFrame for seaborn
+        melted_df = histogram_df.melt(id_vars='Bin', value_vars=methods, var_name='Model', value_name='Count')
+        
+        # Plot using seaborn
+        sns.barplot(
+            data=melted_df,
+            x='Bin',
+            y='Count',
+            hue='Model',
+            edgecolor='none'
+        )
         
         plt.title(f'Histogram of {metric.replace("_", " ").title()}')
         plt.xlabel('Metric (%)')
         plt.ylabel('Count')
-        plt.xticks(bin_centers, bin_labels)
+        plt.xticks(rotation=45)
         plt.legend(title="OCR Models", bbox_to_anchor=(1.05, 1), loc='upper left')
         plt.tight_layout()
         
@@ -699,6 +715,7 @@ def plot_histograms(methods: List[str], metrics: List[str], output_dir_data: str
         plt.savefig(os.path.join(output_dir_plots, filename))
         plt.close()
         logger.info(f"Saved histogram plot for '{metric}' as '{filename}'.")
+
 
 # =======================
 # Main Function
@@ -802,7 +819,8 @@ def main(config: Dict[str, Any]) -> None:
                     row,
                     method,
                     config["thresholds"],
-                    config["text_processing"]["max_diff_length"]
+                    config["text_processing"]["max_diff_length"],
+                    config["metrics"]  # Pass active metrics here
                 ),
                 axis=1
             )],
@@ -894,5 +912,5 @@ if __name__ == "__main__":
     # Ensure NLTK data is downloaded
     import nltk
     nltk.download('punkt')
-    
+
     main(CONFIG)
