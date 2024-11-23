@@ -41,7 +41,7 @@ CONFIG = {
         'BART_silver_100', 'BART_silver_1000', 'BART_silver_10000'
     ],
     "additional_metrics": [
-        'bleu_score', 'word_error_rate'
+        'bleu_score', 'word_error_rate', 'precision', 'recall'  # Added 'precision' and 'recall'
     ],
     "text_processing": {
         "max_char_length": 5000,
@@ -58,7 +58,8 @@ CONFIG = {
         "summary_statistics": "summary_statistics",
     },
     "metrics_to_plot": [
-        'similarity_difflib', 'fuzz_ratio', 'jaccard_similarity', 'bleu_score', 'word_error_rate'
+        'similarity_difflib', 'fuzz_ratio', 'jaccard_similarity', 
+        'bleu_score', 'word_error_rate', 'precision', 'recall'  # Added 'precision' and 'recall'
     ],
 }
 
@@ -106,9 +107,6 @@ def display_df_info(df: pd.DataFrame, name: str) -> None:
     logger.info(f"Columns: {list(df.columns)}")
     logger.info(f"Data Types:\n{df.dtypes}\n")
 
-import re
-import unicodedata
-
 def normalize_text(text: str, max_chars: int) -> str:
     """
     Normalizes text by:
@@ -154,7 +152,6 @@ def normalize_text(text: str, max_chars: int) -> str:
         text = text.ljust(max_chars)
 
     return text
-
 
 def compute_similarity_difflib(text1: str, text2: str) -> float:
     """
@@ -204,6 +201,38 @@ def compute_word_error_rate(text1: str, text2: str) -> float:
     """
     return wer(text1, text2)
 
+def compute_precision(text1: str, text2: str) -> float:
+    """
+    Computes Precision: the proportion of words in text2 that are also in text1.
+    
+    Args:
+        text1 (str): The first text (e.g., ground truth).
+        text2 (str): The second text (e.g., prediction).
+    
+    Returns:
+        float: The precision score.
+    """
+    set1 = set(text1.split())
+    set2 = set(text2.split())
+    intersection = set1.intersection(set2)
+    return len(intersection) / len(set2) if set2 else 0.0
+
+def compute_recall(text1: str, text2: str) -> float:
+    """
+    Computes Recall: the proportion of words in text1 that are also in text2.
+    
+    Args:
+        text1 (str): The first text (e.g., ground truth).
+        text2 (str): The second text (e.g., prediction).
+    
+    Returns:
+        float: The recall score.
+    """
+    set1 = set(text1.split())
+    set2 = set(text2.split())
+    intersection = set1.intersection(set2)
+    return len(intersection) / len(set1) if set1 else 0.0
+
 def get_differences(text1: str, text2: str, max_length: int) -> str:
     """
     Generates a string showing differences between two texts using difflib's ndiff.
@@ -212,10 +241,11 @@ def get_differences(text1: str, text2: str, max_length: int) -> str:
     changes = [d for d in diff if d.startswith('- ') or d.startswith('+ ')]
     differences = ' '.join(changes)
     return differences[:max_length] + '... [truncated]' if len(differences) > max_length else differences
+
 def compare_texts(row: pd.Series, method_col: str, thresholds: Dict[str, float], max_diff_length: int) -> pd.Series:
     """
     Compares normalized transcription with a specific method's transcription.
-    Computes similarities using difflib, FuzzyWuzzy, Jaccard similarity, BLEU, and WER.
+    Computes similarities using difflib, FuzzyWuzzy, Jaccard similarity, BLEU, WER, Precision, and Recall.
     """
     human_text = row['normalized_transcription'].strip() if isinstance(row['normalized_transcription'], str) else ''
     method_text = row[f'normalized_{method_col}'].strip() if isinstance(row[f'normalized_{method_col}'], str) else ''
@@ -233,6 +263,10 @@ def compare_texts(row: pd.Series, method_col: str, thresholds: Dict[str, float],
     similarity_bleu = compute_bleu_score(human_text, method_text)
     similarity_wer = compute_word_error_rate(human_text, method_text)
     
+    # Compute Precision and Recall
+    similarity_precision = compute_precision(human_text, method_text)
+    similarity_recall = compute_recall(human_text, method_text)
+    
     differences = get_differences(human_text, method_text, max_diff_length)
     
     # Compile results
@@ -248,6 +282,8 @@ def compare_texts(row: pd.Series, method_col: str, thresholds: Dict[str, float],
         f'{method_col}_equal_jaccard': equal_jaccard,
         f'{method_col}_bleu_score': similarity_bleu,
         f'{method_col}_word_error_rate': similarity_wer,
+        f'{method_col}_precision': similarity_precision,  # Added Precision
+        f'{method_col}_recall': similarity_recall,        # Added Recall
         f'{method_col}_differences': differences
     })
 
@@ -262,7 +298,6 @@ def ensure_length(df: pd.DataFrame, methods: List[str], max_chars: int) -> pd.Da
                 lambda x: x if isinstance(x, str) and len(x) <= max_chars else (x[:max_chars - 15] + '... [truncated]' if isinstance(x, str) else x)
             )
     return df
-
 
 def plot_overlayed_histograms(df: pd.DataFrame, methods: List[str], metric: str, output_dir: str) -> None:
     """
@@ -296,6 +331,7 @@ def plot_overlayed_histograms(df: pd.DataFrame, methods: List[str], metric: str,
     plt.savefig(os.path.join(output_dir, filename))
     plt.close()
     logger.info(f"Saved overlayed histogram for '{metric}' as '{filename}'.")
+
 def plot_top_bottom_models(df: pd.DataFrame, methods: List[str], metric: str, output_dir: str) -> None:
     """
     Plots histograms for the top 3 and bottom 3 models based on mean similarity for a given metric.
@@ -364,6 +400,7 @@ def plot_top_bottom_models(df: pd.DataFrame, methods: List[str], metric: str, ou
     plt.savefig(os.path.join(output_dir, filename_bottom))
     plt.close()
     logger.info(f"Saved bottom 3 histogram for '{metric}' as '{filename_bottom}'.")
+
 def generate_summary_statistics(df: pd.DataFrame, methods: List[str], metrics: List[str], output_dir: str) -> None:
     """
     Generates and saves summary statistics for each measurement and model.
@@ -376,13 +413,13 @@ def generate_summary_statistics(df: pd.DataFrame, methods: List[str], metrics: L
             if column in df.columns:
                 if pd.api.types.is_numeric_dtype(df[column]):
                     summary_data[method] = {
-                        'Mean': f"{df[column].mean() * 100:.0f}%",
-                        'Median': f"{df[column].median() * 100:.0f}%",
-                        'Std Dev': f"{df[column].std() * 100:.0f}%",
-                        'Min': f"{df[column].min() * 100:.0f}%",
-                        'Max': f"{df[column].max() * 100:.0f}%",
-                        '25%': f"{df[column].quantile(0.25) * 100:.0f}%",
-                        '75%': f"{df[column].quantile(0.75) * 100:.0f}%"
+                        'Mean': f"{df[column].mean() * 100:.0f}",
+                        'Median': f"{df[column].median() * 100:.0f}",
+                        'Std Dev': f"{df[column].std() * 100:.0f}",
+                        'Min': f"{df[column].min() * 100:.0f}",
+                        'Max': f"{df[column].max() * 100:.0f}",
+                        '25%': f"{df[column].quantile(0.25) * 100:.0f}",
+                        '75%': f"{df[column].quantile(0.75) * 100:.0f}"
                     }
                 else:
                     logger.warning(f"Column '{column}' is not numeric and will be skipped in summary statistics.")
