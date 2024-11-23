@@ -17,8 +17,7 @@ from jiwer import wer
 # =======================
 # Configuration Section
 # =======================
-
-CONFIG = {
+CONFIG = { #DO NOT REMOVE COMMENTED METRICS
     "files": {
         "primary_input": "truncated_csv.csv",
         "bart_input": "processed_1000_testing_csv.csv",
@@ -41,11 +40,18 @@ CONFIG = {
         'BART_silver_100', 'BART_silver_1000', 'BART_silver_10000'
     ],
     "additional_metrics": [
-        'bleu_score', 'word_error_rate', 'precision', 'recall'  # Added 'precision' and 'recall'
+        # 'bleu_score',          # Precision metric for translation quality
+        # 'word_error_rate',    # Measures transcription accuracy
+        'precision',             # Proportion of relevant words retrieved
+        'recall'                 # Proportion of relevant words retrieved out of all relevant
     ],
     "text_processing": {
         "max_char_length": 5000,
         "max_diff_length": 1000,
+        "phrases_to_delete": [  # Phrases to remove from texts
+            "correct this ocr",
+            "correct this ocr:"
+        ],
     },
     "sample": {
         "size": 100,
@@ -58,10 +64,17 @@ CONFIG = {
         "summary_statistics": "summary_statistics",
     },
     "metrics_to_plot": [
-        'similarity_difflib', 'fuzz_ratio', 'jaccard_similarity', 
-        'bleu_score', 'word_error_rate', 'precision', 'recall'  # Added 'precision' and 'recall'
+        # 'similarity_difflib',     # SequenceMatcher ratio
+        # 'fuzz_ratio',             # FuzzyWuzzy ratio
+        # 'jaccard_similarity',     # Jaccard index
+        # 'bleu_score',             # BLEU score for translation
+        # 'word_error_rate',        # WER for transcription accuracy
+        'precision',                # Precision metric for retrieval
+        'recall'                    # Recall metric for retrieval
     ],
 }
+
+
 
 # =======================
 # Setup Logging
@@ -107,9 +120,10 @@ def display_df_info(df: pd.DataFrame, name: str) -> None:
     logger.info(f"Columns: {list(df.columns)}")
     logger.info(f"Data Types:\n{df.dtypes}\n")
 
-def normalize_text(text: str, max_chars: int) -> str:
+def normalize_text(text: str, max_chars: int, phrases_to_delete: List[str] = []) -> str:
     """
     Normalizes text by:
+    - Deleting specified unwanted phrases
     - Decoding escape sequences (e.g., '\\n', '\\t', '\\r', '\\\\')
     - Lowercasing
     - Removing accents
@@ -117,11 +131,25 @@ def normalize_text(text: str, max_chars: int) -> str:
     - Replacing newlines and other whitespace with spaces
     - Removing extra whitespace
     - Truncating or padding to a maximum length
+    
+    Args:
+        text (str): The text to normalize.
+        max_chars (int): Maximum character length.
+        phrases_to_delete (List[str]): List of phrases to remove from the text.
+    
+    Returns:
+        str: The normalized text.
     """
     if not isinstance(text, str):
         return ' ' * max_chars
 
-    # Step 1: Decode escape sequences (e.g., '\\n' -> '\n', '\\t' -> '\t', '\\\\' -> '\\')
+    # Step 1: Delete unwanted phrases
+    for phrase in phrases_to_delete:
+        # Use regex to remove the phrase case-insensitively
+        pattern = re.compile(re.escape(phrase), re.IGNORECASE)
+        text = pattern.sub('', text)
+    
+    # Step 2: Decode escape sequences (e.g., '\\n' -> '\n', '\\t' -> '\t', '\\\\' -> '\\')
     try:
         # Replace double backslashes with single backslashes to ensure correct decoding
         text = text.replace('\\\\', '\\')
@@ -130,22 +158,22 @@ def normalize_text(text: str, max_chars: int) -> str:
         # If decoding fails, proceed without decoding to avoid data loss
         pass
 
-    # Step 2: Normalize Unicode characters to NFC form and convert to lowercase
+    # Step 3: Normalize Unicode characters to NFC form and convert to lowercase
     text = unicodedata.normalize('NFC', text).lower()
 
-    # Step 3: Remove accents and diacritics
+    # Step 4: Remove accents and diacritics
     text = ''.join(
         c for c in unicodedata.normalize('NFD', text)
         if unicodedata.category(c) != 'Mn'
     )
 
-    # Step 4: Remove punctuation (retain word characters and spaces)
+    # Step 5: Remove punctuation (retain word characters and spaces)
     text = re.sub(r'[^\w\s]', '', text)
 
-    # Step 5: Replace all whitespace characters (including newlines, tabs) with a single space
+    # Step 6: Replace all whitespace characters (including newlines, tabs) with a single space
     text = re.sub(r'\s+', ' ', text).strip()
 
-    # Step 6: Truncate or pad the text to the desired length
+    # Step 7: Truncate or pad the text to the desired length
     if len(text) > max_chars:
         text = text[:max_chars - 15] + '... [truncated]'
     else:
@@ -469,6 +497,82 @@ def process_sample(df: pd.DataFrame, sample_size: int, output_path: str, separat
     except Exception as e:
         logger.error(f"Error creating sample CSV: {e}")
         raise
+def plot_bar_chart(df: pd.DataFrame, methods: List[str], metric: str, output_dir: str) -> None:
+    """
+    Plots a bar chart for a specific metric across different OCR models.
+    Each bar represents a model's performance on the metric.
+    The y-axis ranges from 0 to 100%, and each bar has its value displayed above it.
+    
+    Args:
+        df (pd.DataFrame): The DataFrame containing the metrics.
+        methods (List[str]): List of OCR model names in the desired order.
+        metric (str): The metric to plot (e.g., 'precision', 'recall').
+        output_dir (str): Directory where the plot will be saved.
+    """
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+
+    # Extract metric values for each method and convert to percentages
+    data = []
+    for method in methods:
+        column = f'{method}_{metric}'
+        if column in df.columns:
+            # Assuming the metric is in [0,1], convert to percentage
+            value = df[column].mean() * 100
+            data.append({'Model': method, metric.capitalize(): value})
+        else:
+            # Handle missing columns by assigning NaN or a default value
+            data.append({'Model': method, metric.capitalize(): 0.0})
+
+    metric_df = pd.DataFrame(data)
+
+    # Ensure the DataFrame follows the methods order
+    metric_df['Model'] = pd.Categorical(metric_df['Model'], categories=methods, ordered=True)
+    metric_df = metric_df.sort_values('Model')
+
+    # Initialize the matplotlib figure
+    plt.figure(figsize=(14, 8))
+    sns.set_style("whitegrid")
+
+    # Create the bar plot with consistent order
+    bar_plot = sns.barplot(
+        x='Model',
+        y=metric.capitalize(),
+        data=metric_df,
+        palette='viridis',
+        order=methods
+    )
+
+    # Set y-axis from 0 to 100
+    plt.ylim(0, 100)
+
+    # Add value labels above each bar
+    for p in bar_plot.patches:
+        height = p.get_height()
+        bar_plot.annotate(
+            f'{height:.1f}%',
+            (p.get_x() + p.get_width() / 2., height),
+            ha='center', va='bottom',
+            fontsize=10, color='black',
+            xytext=(0, 5),
+            textcoords='offset points'
+        )
+
+    # Set titles and labels
+    plt.title(f'{metric.capitalize()} by OCR Model', fontsize=18)
+    plt.ylabel(f'{metric.capitalize()} (%)', fontsize=14)
+    plt.xlabel('OCR Model', fontsize=14)
+
+    # Rotate x-axis labels for better readability
+    plt.xticks(rotation=45, ha='right')
+
+    plt.tight_layout()
+
+    # Save the plot
+    filename = f'bar_chart_{metric}.png'
+    plt.savefig(os.path.join(output_dir, filename))
+    plt.close()
+    logger.info(f"Saved bar chart for '{metric}' as '{filename}'.")
 
 def main(config: Dict[str, Any]) -> None:
     logger.info("Starting processing...")
@@ -509,7 +613,11 @@ def main(config: Dict[str, Any]) -> None:
     if 'transcription' in df.columns:
         logger.info("Normalizing 'transcription' column as 'normalized_transcription'...")
         df['normalized_transcription'] = df['transcription'].progress_apply(
-            lambda x: normalize_text(x, config["text_processing"]["max_char_length"])
+            lambda x: normalize_text(
+                x, 
+                config["text_processing"]["max_char_length"], 
+                config["text_processing"]["phrases_to_delete"]
+            )
         )
         logger.info("Normalization of 'transcription' completed.\n")
     else:
@@ -532,7 +640,11 @@ def main(config: Dict[str, Any]) -> None:
         norm_col = f'normalized_{method}'
         logger.info(f"  - Normalizing '{method}' -> '{norm_col}'")
         df[norm_col] = df[method].progress_apply(
-            lambda x: normalize_text(x, config["text_processing"]["max_char_length"])
+            lambda x: normalize_text(
+                x, 
+                config["text_processing"]["max_char_length"], 
+                config["text_processing"]["phrases_to_delete"]
+            )
         )
     logger.info("Normalization of OCR methods completed.\n")
     
@@ -577,7 +689,7 @@ def main(config: Dict[str, Any]) -> None:
     # Create output directories
     create_output_dirs([config["output_dirs"]["plots"], config["output_dirs"]["summary_statistics"]])
     
-    # Generate plots
+    # Generate overlayed histograms
     logger.info("Generating summary overlayed plots with median annotations...")
     for metric in config["metrics_to_plot"]:
         plot_overlayed_histograms(
@@ -588,7 +700,18 @@ def main(config: Dict[str, Any]) -> None:
         )
     logger.info("Overlayed summary plots generated and saved.\n")
     
-    # Generate top 3 and bottom 3 plots
+    # Generate bar charts
+    logger.info("Generating bar charts for each metric...")
+    for metric in config["metrics_to_plot"]:
+        plot_bar_chart(
+            df,
+            methods=config["transcription_columns"],  # Ensures consistent order
+            metric=metric,
+            output_dir=config["output_dirs"]["plots"]
+        )
+    logger.info("Bar charts generated and saved.\n")
+    
+    # Generate top 3 and bottom 3 model plots
     logger.info("Generating top 3 and bottom 3 model plots...")
     for metric in config["metrics_to_plot"]:
         plot_top_bottom_models(
@@ -610,6 +733,8 @@ def main(config: Dict[str, Any]) -> None:
     logger.info("Summary statistics generated and saved.\n")
     
     logger.info("Processing completed successfully.")
+
+
 
 if __name__ == "__main__":
     # Ensure NLTK data is downloaded
