@@ -22,13 +22,13 @@ CONFIG = {
     "files": {
         "primary_input": "truncated_csv.csv",
         "bart_input": "processed_1000_testing_csv.csv",
-        "output": "updated_file.csv",
-        "output_sample": "sample_updated_file.csv",
+        "output": "updated_file_comma.csv",
+        "output_sample": "sample_updated_file_comma2.csv",
     },
     "separators": {
         "primary_input": ",",
         "bart_input": ",",
-        "output": "|",
+        "output": ",",
     },
     "thresholds": {
         "difflib": 0.93,
@@ -48,7 +48,7 @@ CONFIG = {
         "max_diff_length": 1000,
     },
     "sample": {
-        "size": 10,
+        "size": 100,
     },
     "debugging": {
         "drop_after_1000": True,
@@ -106,25 +106,55 @@ def display_df_info(df: pd.DataFrame, name: str) -> None:
     logger.info(f"Columns: {list(df.columns)}")
     logger.info(f"Data Types:\n{df.dtypes}\n")
 
+import re
+import unicodedata
+
 def normalize_text(text: str, max_chars: int) -> str:
     """
-    Normalizes text by lowercasing, removing accents, punctuation,
-    extra whitespace, and truncating or padding to a maximum length.
+    Normalizes text by:
+    - Decoding escape sequences (e.g., '\\n', '\\t', '\\r', '\\\\')
+    - Lowercasing
+    - Removing accents
+    - Removing punctuation
+    - Replacing newlines and other whitespace with spaces
+    - Removing extra whitespace
+    - Truncating or padding to a maximum length
     """
     if not isinstance(text, str):
         return ' ' * max_chars
-    
+
+    # Step 1: Decode escape sequences (e.g., '\\n' -> '\n', '\\t' -> '\t', '\\\\' -> '\\')
+    try:
+        # Replace double backslashes with single backslashes to ensure correct decoding
+        text = text.replace('\\\\', '\\')
+        text = text.encode('utf-8').decode('unicode_escape')
+    except UnicodeDecodeError:
+        # If decoding fails, proceed without decoding to avoid data loss
+        pass
+
+    # Step 2: Normalize Unicode characters to NFC form and convert to lowercase
     text = unicodedata.normalize('NFC', text).lower()
-    text = ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn')
+
+    # Step 3: Remove accents and diacritics
+    text = ''.join(
+        c for c in unicodedata.normalize('NFD', text)
+        if unicodedata.category(c) != 'Mn'
+    )
+
+    # Step 4: Remove punctuation (retain word characters and spaces)
     text = re.sub(r'[^\w\s]', '', text)
-    text = re.sub(r'\s+', ' ', text).strip().replace('\n', ' ')
-    
+
+    # Step 5: Replace all whitespace characters (including newlines, tabs) with a single space
+    text = re.sub(r'\s+', ' ', text).strip()
+
+    # Step 6: Truncate or pad the text to the desired length
     if len(text) > max_chars:
         text = text[:max_chars - 15] + '... [truncated]'
     else:
         text = text.ljust(max_chars)
-    
+
     return text
+
 
 def compute_similarity_difflib(text1: str, text2: str) -> float:
     """
@@ -334,25 +364,28 @@ def plot_top_bottom_models(df: pd.DataFrame, methods: List[str], metric: str, ou
     plt.savefig(os.path.join(output_dir, filename_bottom))
     plt.close()
     logger.info(f"Saved bottom 3 histogram for '{metric}' as '{filename_bottom}'.")
-
 def generate_summary_statistics(df: pd.DataFrame, methods: List[str], metrics: List[str], output_dir: str) -> None:
     """
     Generates and saves summary statistics for each measurement and model.
+    Formats the statistics as percentages with two decimal places.
     """
     for metric in metrics:
         summary_data = {}
         for method in methods:
             column = f'{method}_{metric}'
             if column in df.columns:
-                summary_data[method] = {
-                    'Mean': df[column].mean(),
-                    'Median': df[column].median(),
-                    'Std Dev': df[column].std(),
-                    'Min': df[column].min(),
-                    'Max': df[column].max(),
-                    '25%': df[column].quantile(0.25),
-                    '75%': df[column].quantile(0.75)
-                }
+                if pd.api.types.is_numeric_dtype(df[column]):
+                    summary_data[method] = {
+                        'Mean': f"{df[column].mean() * 100:.0f}%",
+                        'Median': f"{df[column].median() * 100:.0f}%",
+                        'Std Dev': f"{df[column].std() * 100:.0f}%",
+                        'Min': f"{df[column].min() * 100:.0f}%",
+                        'Max': f"{df[column].max() * 100:.0f}%",
+                        '25%': f"{df[column].quantile(0.25) * 100:.0f}%",
+                        '75%': f"{df[column].quantile(0.75) * 100:.0f}%"
+                    }
+                else:
+                    logger.warning(f"Column '{column}' is not numeric and will be skipped in summary statistics.")
         if summary_data:
             summary_df = pd.DataFrame(summary_data).T[['Mean', 'Median', 'Std Dev', 'Min', 'Max', '25%', '75%']]
             summary_csv = os.path.join(output_dir, f'summary_statistics_{metric}.csv')
