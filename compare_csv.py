@@ -17,7 +17,7 @@ from jiwer import wer
 # =======================
 # Configuration Section
 # =======================
-CONFIG = { #DO NOT REMOVE COMMENTED METRICS
+CONFIG = {  # DO NOT REMOVE COMMENTED METRICS
     "files": {
         "primary_input": "truncated_csv.csv",
         "bart_input": "processed_1000_testing_csv.csv",
@@ -39,11 +39,14 @@ CONFIG = { #DO NOT REMOVE COMMENTED METRICS
         'BART_untuned', 'BART_gold_100', 'BART_gold_1000', 'BART_gold_10000',
         'BART_silver_100', 'BART_silver_1000', 'BART_silver_10000'
     ],
-    "additional_metrics": [
-        # 'bleu_score',          # Precision metric for translation quality
-        # 'word_error_rate',    # Measures transcription accuracy
-        'precision',             # Proportion of relevant words retrieved
-        'recall'                 # Proportion of relevant words retrieved out of all relevant
+    "metrics": [
+        # 'similarity_difflib',     # SequenceMatcher ratio
+        # 'fuzz_ratio',             # FuzzyWuzzy ratio
+        # 'jaccard_similarity',     # Jaccard index
+        # 'bleu_score',             # BLEU score for translation
+        # 'word_error_rate',        # WER for transcription accuracy
+        'precision',                # Precision metric for retrieval
+        'recall'                    # Recall metric for retrieval
     ],
     "text_processing": {
         "max_char_length": 5000,
@@ -62,19 +65,10 @@ CONFIG = { #DO NOT REMOVE COMMENTED METRICS
     "output_dirs": {
         "plots": "plots",
         "summary_statistics": "summary_statistics",
+        "histogram_data": "histogram_data",
+        "histogram_plots": "histogram_plots",
     },
-    "metrics_to_plot": [
-        # 'similarity_difflib',     # SequenceMatcher ratio
-        # 'fuzz_ratio',             # FuzzyWuzzy ratio
-        # 'jaccard_similarity',     # Jaccard index
-        # 'bleu_score',             # BLEU score for translation
-        # 'word_error_rate',        # WER for transcription accuracy
-        'precision',                # Precision metric for retrieval
-        'recall'                    # Recall metric for retrieval
-    ],
 }
-
-
 
 # =======================
 # Setup Logging
@@ -93,7 +87,7 @@ logger = logging.getLogger(__name__)
 tqdm.pandas(desc="Progress")
 
 # =======================
-# Utility Functions
+# Helper Functions
 # =======================
 
 def read_csv(file_path: str, separator: str) -> pd.DataFrame:
@@ -298,7 +292,7 @@ def compare_texts(row: pd.Series, method_col: str, thresholds: Dict[str, float],
     differences = get_differences(human_text, method_text, max_diff_length)
     
     # Compile results
-    return pd.Series({
+    results = {
         f'{method_col}_equal_difflib': equal_difflib,
         f'{method_col}_similarity_difflib': similarity_difflib,
         f'{method_col}_fuzz_ratio': similarity_fuzzy['fuzz_ratio'],
@@ -313,7 +307,61 @@ def compare_texts(row: pd.Series, method_col: str, thresholds: Dict[str, float],
         f'{method_col}_precision': similarity_precision,  # Added Precision
         f'{method_col}_recall': similarity_recall,        # Added Recall
         f'{method_col}_differences': differences
-    })
+    }
+    
+    return pd.Series(results)
+
+def detect_repetition(text: str, phrase_length: int = 3, repetition_threshold: int = 3) -> bool:
+    """
+    Detects if any phrase of a given length repeats more than the repetition threshold.
+    
+    Args:
+        text (str): The text to analyze.
+        phrase_length (int): Number of words in each phrase.
+        repetition_threshold (int): Number of allowed repetitions before flagging.
+        
+    Returns:
+        bool: True if repetition exceeds threshold, else False.
+    """
+    phrases = re.findall(r'\b(?:\w+\s+){%d}\w+\b' % (phrase_length - 1), text.lower())
+    phrase_counts = {}
+    for phrase in phrases:
+        phrase_counts[phrase] = phrase_counts.get(phrase, 0) + 1
+        if phrase_counts[phrase] > repetition_threshold:
+            return True
+    return False
+
+def check_character_uniqueness(text: str, uniqueness_threshold: float = 0.4) -> bool:
+    """
+    Checks if the ratio of unique characters to total characters is below the threshold.
+    
+    Args:
+        text (str): The text to analyze.
+        uniqueness_threshold (float): Threshold below which uniqueness is considered low.
+        
+    Returns:
+        bool: True if uniqueness is below threshold, else False.
+    """
+    if not text:
+        return False
+    unique_chars = set(text)
+    uniqueness_ratio = len(unique_chars) / len(text)
+    return uniqueness_ratio < uniqueness_threshold
+
+def flag_repeated_text(row: pd.Series) -> int:
+    """
+    Flags the row as 'repeated_text' if both repetition and uniqueness criteria are met.
+    
+    Args:
+        row (pd.Series): A row of the DataFrame.
+        
+    Returns:
+        int: 1 if flagged as repeated_text, else 0.
+    """
+    text = row['normalized_transcription']
+    is_repetition = detect_repetition(text)
+    is_low_uniqueness = check_character_uniqueness(text)
+    return 1 if (is_repetition and is_low_uniqueness) else 0
 
 def ensure_length(df: pd.DataFrame, methods: List[str], max_chars: int) -> pd.DataFrame:
     """
@@ -497,6 +545,7 @@ def process_sample(df: pd.DataFrame, sample_size: int, output_path: str, separat
     except Exception as e:
         logger.error(f"Error creating sample CSV: {e}")
         raise
+
 def plot_bar_chart(df: pd.DataFrame, methods: List[str], metric: str, output_dir: str) -> None:
     """
     Plots a bar chart for a specific metric across different OCR models.
@@ -509,9 +558,6 @@ def plot_bar_chart(df: pd.DataFrame, methods: List[str], metric: str, output_dir
         metric (str): The metric to plot (e.g., 'precision', 'recall').
         output_dir (str): Directory where the plot will be saved.
     """
-    import matplotlib.pyplot as plt
-    import seaborn as sns
-
     # Extract metric values for each method and convert to percentages
     data = []
     for method in methods:
@@ -573,6 +619,90 @@ def plot_bar_chart(df: pd.DataFrame, methods: List[str], metric: str, output_dir
     plt.savefig(os.path.join(output_dir, filename))
     plt.close()
     logger.info(f"Saved bar chart for '{metric}' as '{filename}'.")
+
+# =======================
+# Histogram Functions
+# =======================
+
+def generate_and_save_histogram_data(df: pd.DataFrame, methods: List[str], metrics: List[str], output_dir: str) -> None:
+    """
+    Generates histogram data with 10% bin sizes for each model and metric and saves them as CSV files.
+    
+    Args:
+        df (pd.DataFrame): The DataFrame containing the metrics.
+        methods (List[str]): List of OCR model names.
+        metrics (List[str]): List of metrics to generate histograms for.
+        output_dir (str): Directory where histogram data CSVs will be saved.
+    """
+    bin_edges = [i for i in range(0, 101, 10)]  # 0,10,20,...,100
+    
+    for metric in metrics:
+        histogram_data = {'Model': methods}
+        for method in methods:
+            column = f'{method}_{metric}'
+            if column in df.columns:
+                # Convert metric to percentage
+                data = df[column] * 100
+                counts = pd.cut(data, bins=bin_edges, right=False, include_lowest=True).value_counts().sort_index()
+                histogram_data[method] = counts.values
+            else:
+                histogram_data[method] = [0] * (len(bin_edges) - 1)
+        
+        histogram_df = pd.DataFrame(histogram_data)
+        histogram_df.to_csv(os.path.join(output_dir, f'histogram_data_{metric}.csv'), index=False)
+        logger.info(f"Saved histogram data for '{metric}' as 'histogram_data_{metric}.csv'.")
+
+def plot_histograms(methods: List[str], metrics: List[str], output_dir_data: str, output_dir_plots: str) -> None:
+    """
+    Plots histograms based on the generated histogram data with 10% bin sizes.
+    
+    Args:
+        methods (List[str]): List of OCR model names.
+        metrics (List[str]): List of metrics to plot histograms for.
+        output_dir_data (str): Directory where histogram data CSVs are saved.
+        output_dir_plots (str): Directory where histogram plots will be saved.
+    """
+    bin_labels = [f'{i}-{i+10}%' for i in range(0, 100, 10)]
+    bin_centers = [i + 5 for i in range(0, 100, 10)]
+    
+    for metric in metrics:
+        data_path = os.path.join(output_dir_data, f'histogram_data_{metric}.csv')
+        if not os.path.exists(data_path):
+            logger.warning(f"Histogram data for '{metric}' not found at '{data_path}'. Skipping plot.")
+            continue
+        
+        histogram_df = pd.read_csv(data_path)
+        plt.figure(figsize=(14, 8))
+        
+        # Plot each model's histogram
+        for idx, method in enumerate(methods):
+            if method in histogram_df.columns:
+                counts = histogram_df[method]
+                # Offset bars for each model to prevent complete overlap
+                offset = (idx - len(methods)/2) * 0.8  # Adjust offset based on number of methods
+                plt.bar(
+                    [x + offset for x in bin_centers],
+                    counts,
+                    width=8,
+                    alpha=0.6,
+                    label=method
+                )
+        
+        plt.title(f'Histogram of {metric.replace("_", " ").title()}')
+        plt.xlabel('Metric (%)')
+        plt.ylabel('Count')
+        plt.xticks(bin_centers, bin_labels)
+        plt.legend(title="OCR Models", bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.tight_layout()
+        
+        filename = f'histogram_{metric}.png'
+        plt.savefig(os.path.join(output_dir_plots, filename))
+        plt.close()
+        logger.info(f"Saved histogram plot for '{metric}' as '{filename}'.")
+
+# =======================
+# Main Function
+# =======================
 
 def main(config: Dict[str, Any]) -> None:
     logger.info("Starting processing...")
@@ -657,6 +787,11 @@ def main(config: Dict[str, Any]) -> None:
     )
     logger.info("Length enforcement completed.\n")
     
+    # Flag repeated_text
+    logger.info("Flagging rows with excessive repetition as 'repeated_text'...")
+    df['repeated_text'] = df.progress_apply(flag_repeated_text, axis=1)
+    logger.info("Flagging completed.\n")
+    
     # Compare texts and compute similarities
     logger.info("Comparing texts and computing similarities...")
     for method in config["transcription_columns"]:
@@ -687,11 +822,16 @@ def main(config: Dict[str, Any]) -> None:
     )
     
     # Create output directories
-    create_output_dirs([config["output_dirs"]["plots"], config["output_dirs"]["summary_statistics"]])
+    create_output_dirs([
+        config["output_dirs"]["plots"],
+        config["output_dirs"]["summary_statistics"],
+        config["output_dirs"]["histogram_data"],
+        config["output_dirs"]["histogram_plots"]
+    ])
     
     # Generate overlayed histograms
     logger.info("Generating summary overlayed plots with median annotations...")
-    for metric in config["metrics_to_plot"]:
+    for metric in config["metrics"]:
         plot_overlayed_histograms(
             df,
             methods=config["transcription_columns"],
@@ -702,7 +842,7 @@ def main(config: Dict[str, Any]) -> None:
     
     # Generate bar charts
     logger.info("Generating bar charts for each metric...")
-    for metric in config["metrics_to_plot"]:
+    for metric in config["metrics"]:
         plot_bar_chart(
             df,
             methods=config["transcription_columns"],  # Ensures consistent order
@@ -713,7 +853,7 @@ def main(config: Dict[str, Any]) -> None:
     
     # Generate top 3 and bottom 3 model plots
     logger.info("Generating top 3 and bottom 3 model plots...")
-    for metric in config["metrics_to_plot"]:
+    for metric in config["metrics"]:
         plot_top_bottom_models(
             df,
             methods=config["transcription_columns"],
@@ -727,14 +867,28 @@ def main(config: Dict[str, Any]) -> None:
     generate_summary_statistics(
         df,
         methods=config["transcription_columns"],
-        metrics=config["metrics_to_plot"],
+        metrics=config["metrics"],
         output_dir=config["output_dirs"]["summary_statistics"]
     )
     logger.info("Summary statistics generated and saved.\n")
     
+    # Generate histogram data and plots
+    logger.info("Generating histogram data and plots...")
+    generate_and_save_histogram_data(
+        df,
+        methods=config["transcription_columns"],
+        metrics=config["metrics"],
+        output_dir=config["output_dirs"]["histogram_data"]
+    )
+    plot_histograms(
+        methods=config["transcription_columns"],
+        metrics=config["metrics"],
+        output_dir_data=config["output_dirs"]["histogram_data"],
+        output_dir_plots=config["output_dirs"]["histogram_plots"]
+    )
+    logger.info("Histogram data and plots generated and saved.\n")
+    
     logger.info("Processing completed successfully.")
-
-
 
 if __name__ == "__main__":
     # Ensure NLTK data is downloaded
