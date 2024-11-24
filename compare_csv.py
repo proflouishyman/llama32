@@ -14,6 +14,8 @@ from tqdm import tqdm
 from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
 from jiwer import wer
 
+# use source unslothenv/bin/activate
+
 # =======================
 # Configuration Section
 # =======================
@@ -43,8 +45,8 @@ CONFIG = {  # DO NOT REMOVE COMMENTED METRICS
         # 'similarity_difflib',     # SequenceMatcher ratio
         # 'fuzz_ratio',             # FuzzyWuzzy ratio
         # 'jaccard_similarity',     # Jaccard index
-        # 'bleu_score',             # BLEU score for translation
-        # 'word_error_rate',        # WER for transcription accuracy
+        'bleu_score',             # BLEU score for translation
+        'word_error_rate',        # WER for transcription accuracy
         'precision',                # Precision metric for retrieval
         'recall'                    # Recall metric for retrieval
     ],
